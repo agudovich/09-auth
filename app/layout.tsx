@@ -8,6 +8,7 @@ import { SITE_URL, OG_IMAGE } from "@/lib/seo";
 import Providers from "./providers";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
+import AuthProvider from "@/components/AuthProvider/AuthProvider";
 
 const roboto = Roboto({
   subsets: ["latin", "cyrillic"],
@@ -44,10 +45,12 @@ export default function RootLayout({
     <html lang="en" className={roboto.variable}>
       <body>
         <Providers>
-          <Header />
-          <main>{children}</main>
-          <Footer />
-          {modal}
+          <AuthProvider>
+            <Header />
+            <main>{children}</main>
+            <Footer />
+            {modal}
+          </AuthProvider>
         </Providers>
       </body>
     </html>

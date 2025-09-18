@@ -2,6 +2,7 @@
 import Link from "next/link";
 import TagsMenu from "@/components/TagsMenu/TagsMenu";
 import css from "./Header.module.css";
+import AuthNavigation from "@/components/AuthNavigation/AuthNavigation";
 
 export default function Header() {
   return (
@@ -21,6 +22,7 @@ export default function Header() {
             <li className={css.menuSlot}>
               <TagsMenu />
             </li>
+            <AuthNavigation />
           </ul>
         </nav>
       </div>
