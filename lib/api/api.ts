@@ -10,12 +10,15 @@ function normalizeBaseUrl(v?: string | null) {
 }
 
 const envUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL);
-const runtimeUrl =
-  typeof window !== "undefined" ? window.location.origin : undefined;
+const isBrowser = typeof window !== "undefined";
 
-const baseURL = `${envUrl ?? runtimeUrl ?? "http://localhost:3000"}/api`;
+// В БРАУЗЕРЕ всегда используем текущий origin (чтобы куки точно отправлялись)
+const chosenBase =
+  (isBrowser ? window.location.origin : undefined) ??
+  envUrl ??
+  "http://localhost:3000";
 
 export const client = axios.create({
-  baseURL,
+  baseURL: `${chosenBase}/api`,
   withCredentials: true,
 });

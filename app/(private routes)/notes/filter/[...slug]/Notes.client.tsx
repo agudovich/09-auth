@@ -49,11 +49,7 @@ export default function NotesClient({
     retry: (count, err) => {
       const status = err?.response?.status ?? err?.status;
       if (status === 401) return false;
-      return count < 2;
-    },
-    throwOnError: (err) => {
-      const status = err?.response?.status ?? err?.status;
-      return status !== 401;
+      return count < 0;
     },
   });
 
