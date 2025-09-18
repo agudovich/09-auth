@@ -25,8 +25,18 @@ export async function signOut(): Promise<void> {
 }
 
 export async function getSession(): Promise<User | null> {
-  const res = await client.get<User | "" | null>("/auth/session");
-  return (res.data as User) ?? null;
+  // Не считаем 204/401/404 успешной сессией
+  const res = await client.get("/auth/session", { validateStatus: () => true });
+
+  if (res.status !== 200) return null;
+
+  const data = res.data;
+  // Бэкенд при неавторизованном может вернуть пустое тело/строку.
+  // Принимаем только «похожий на юзера» объект.
+  if (data && typeof data === "object" && ("email" in data || "id" in data)) {
+    return data as User;
+  }
+  return null;
 }
 
 // ---- USERS ----

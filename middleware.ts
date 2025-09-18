@@ -1,39 +1,49 @@
+// middleware.ts
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const isPrivatePath = (p: string) =>
+const isPrivate = (p: string) =>
   p.startsWith("/notes") || p.startsWith("/profile");
-const isPublicPath = (p: string) => p === "/sign-in" || p === "/sign-up";
 
 export async function middleware(req: NextRequest) {
-  const { pathname, origin } = req.nextUrl;
+  const { pathname } = req.nextUrl;
 
-  const sessionRes = await fetch(`${origin}/api/auth/session`, {
-    headers: { cookie: req.headers.get("cookie") ?? "" },
-    cache: "no-store",
-    credentials: "include",
-  });
+  // Защищаем только приватные роуты
+  if (!isPrivate(pathname)) {
+    return NextResponse.next();
+  }
 
-  const body = await sessionRes.text();
-  const hasUser = sessionRes.ok && body.trim().length > 0;
+  // Мягкая проверка сессии через наш API. Без ручных cookie, без кэша.
+  // Если что-то не так — считаем, что не залогинен и шлём на /sign-in
+  let hasUser = false;
+  try {
+    const res = await fetch(new URL("/api/auth/session", req.url), {
+      cache: "no-store",
+      // Доп. заголовок — ломаем любой промежуточный кэш
+      headers: { "x-mw": "1" },
+    });
+    if (res.status === 200) {
+      // в нашем API: 200 с JSON = есть пользователь; 200 с пустым телом = гость
+      const text = await res.text();
+      if (text.trim()) {
+        hasUser = true;
+      }
+    }
+  } catch {
+    hasUser = false;
+  }
 
-  if (isPrivatePath(pathname) && !hasUser) {
+  if (!hasUser) {
     const url = req.nextUrl.clone();
     url.pathname = "/sign-in";
     url.searchParams.set("from", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (isPublicPath(pathname) && hasUser) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/profile";
-    url.searchParams.delete("from");
-    return NextResponse.redirect(url);
-  }
-
   return NextResponse.next();
 }
 
+// защищаем только то, что нужно
 export const config = {
-  matcher: ["/notes/:path*", "/profile/:path*", "/sign-in", "/sign-up"],
+  matcher: ["/notes/:path*", "/profile/:path*"],
 };
