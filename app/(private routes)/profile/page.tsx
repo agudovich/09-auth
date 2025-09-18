@@ -1,6 +1,8 @@
+// app/(private routes)/profile/page.tsx
 import type { Metadata } from "next";
 import css from "./page.module.css";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ssrGetMe } from "@/lib/api/serverApi";
 
 export const metadata: Metadata = {
@@ -9,7 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default async function ProfilePage() {
-  const user = await ssrGetMe(); // пробрасывает куки с сервера
+  const user = await ssrGetMe();
+  if (!user) {
+    redirect("/sign-in?from=/profile");
+  }
 
   return (
     <main className={css.mainContent}>
@@ -20,17 +25,15 @@ export default async function ProfilePage() {
             Edit Profile
           </Link>
         </div>
-
         <div className={css.avatarWrapper}>
           <img
-            src={user.avatarURL || "https://placehold.co/120x120"}
+            src={user.avatarURL || "/avatar-placeholder.png"}
             alt="User Avatar"
             width={120}
             height={120}
             className={css.avatar}
           />
         </div>
-
         <div className={css.profileInfo}>
           <p>Username: {user.username || "—"}</p>
           <p>Email: {user.email}</p>

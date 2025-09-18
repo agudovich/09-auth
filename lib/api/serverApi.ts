@@ -26,16 +26,18 @@ async function sfetch(input: string, init?: RequestInit) {
     cache: "no-store",
   });
 
-  if (!res.ok) throw new Error(`Server API ${res.status}`);
   return res;
 }
 
 export async function ssrGetMe() {
   const res = await sfetch("/users/me", { method: "GET" });
+  if (res.status === 401) return null; // важный момент
+  if (!res.ok) throw new Error(`Server API ${res.status}`);
   return res.json();
 }
 
 export async function ssrGetNoteById(id: string) {
   const res = await sfetch(`/notes/${id}`, { method: "GET" });
+  if (!res.ok) throw new Error(`Server API ${res.status}`);
   return res.json();
 }

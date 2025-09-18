@@ -1,32 +1,34 @@
-// middleware.ts
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const PRIVATE = [/^\/notes/, /^\/profile/];
-const PUBLIC = [/^\/sign-in/, /^\/sign-up/];
+const isPrivatePath = (p: string) =>
+  p.startsWith("/notes") || p.startsWith("/profile");
+const isPublicPath = (p: string) => p === "/sign-in" || p === "/sign-up";
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = req.nextUrl;
 
-  const isPrivate = PRIVATE.some((r) => r.test(pathname));
-  const isPublic = PUBLIC.some((r) => r.test(pathname));
-
-  const sessionRes = await fetch(new URL("/api/auth/session", origin), {
-    headers: { cookie: req.headers.get("cookie") || "" },
+  const sessionRes = await fetch(`${origin}/api/auth/session`, {
+    headers: { cookie: req.headers.get("cookie") ?? "" },
+    cache: "no-store",
     credentials: "include",
   });
 
-  const body = await sessionRes.text(); // пусто => неавторизован
+  const body = await sessionRes.text();
   const hasUser = sessionRes.ok && body.trim().length > 0;
 
-  if (isPrivate && !hasUser) {
-    const redirect = new URL("/sign-in", origin);
-    redirect.searchParams.set("from", pathname);
-    return NextResponse.redirect(redirect);
+  if (isPrivatePath(pathname) && !hasUser) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/sign-in";
+    url.searchParams.set("from", pathname);
+    return NextResponse.redirect(url);
   }
 
-  if (isPublic && hasUser) {
-    return NextResponse.redirect(new URL("/profile", origin));
+  if (isPublicPath(pathname) && hasUser) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/profile";
+    url.searchParams.delete("from");
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
