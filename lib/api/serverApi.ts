@@ -2,7 +2,16 @@
 import "server-only";
 import { cookies } from "next/headers";
 
-const base = `${process.env.NEXT_PUBLIC_API_URL}/api`;
+function normalizeBaseUrl(v?: string | null) {
+  if (!v) return undefined;
+  let url = v.trim();
+  if (url.endsWith("/")) url = url.slice(0, -1);
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  return url;
+}
+
+const envUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+const base = `${envUrl ?? "http://localhost:3000"}/api`;
 
 async function sfetch(input: string, init?: RequestInit) {
   const cookieHeader = (await cookies()).toString();
