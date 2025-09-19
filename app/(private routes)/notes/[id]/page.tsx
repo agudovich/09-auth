@@ -8,8 +8,7 @@ import {
   QueryClient,
 } from "@tanstack/react-query";
 import NoteDetailsClient from "./NoteDetails.client";
-import { fetchNoteById } from "@/lib/api";
-
+import { fetchNoteById } from "@/lib/api/clientApi";
 export async function generateMetadata(
   params: Promise<{ id: string }>
 ): Promise<Metadata> {

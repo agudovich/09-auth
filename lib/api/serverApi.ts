@@ -1,43 +1,57 @@
 // lib/api/serverApi.ts
-import "server-only";
 import { cookies } from "next/headers";
+import { client } from "./api";
+import type { Note } from "@/types/note";
+import type { User } from "@/types/user";
 
-function normalizeBaseUrl(v?: string | null) {
-  if (!v) return undefined;
-  let url = v.trim();
-  if (url.endsWith("/")) url = url.slice(0, -1);
-  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-  return url;
+type CookiePair = { name: string; value: string };
+type CookieStoreLike = { getAll(): CookiePair[] };
+type SessionPayload = { user: User | null };
+
+function isPromise<T>(v: unknown): v is Promise<T> {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    "then" in (v as Record<string, unknown>)
+  );
 }
 
-const envUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL);
-const base = `${envUrl ?? "http://localhost:3000"}/api`;
+async function readCookiePairs(): Promise<CookiePair[]> {
+  const maybeStore = cookies() as unknown;
+  if (isPromise<CookieStoreLike>(maybeStore)) {
+    const store = await maybeStore;
+    return typeof store?.getAll === "function" ? store.getAll() : [];
+  }
+  const store = maybeStore as CookieStoreLike | undefined;
+  return store && typeof store.getAll === "function" ? store.getAll() : [];
+}
 
-async function sfetch(input: string, init?: RequestInit) {
-  const cookieHeader = (await cookies()).toString();
+async function cookieHeader(): Promise<string> {
+  const list = await readCookiePairs();
+  return list.map(({ name, value }) => `${name}=${value}`).join("; ");
+}
 
-  const res = await fetch(base + input, {
-    ...init,
-    headers: {
-      ...(init?.headers || {}),
-      cookie: cookieHeader,
-    },
-    credentials: "include",
-    cache: "no-store",
+// ---- SSR API ----
+export async function ssrGetSession(): Promise<SessionPayload> {
+  const { data } = await client.get<SessionPayload>("/auth/session", {
+    headers: { Cookie: await cookieHeader() },
+    withCredentials: true,
   });
-
-  return res;
+  return data;
 }
 
-export async function ssrGetMe() {
-  const res = await sfetch("/users/me", { method: "GET" });
-  if (res.status === 401) return null; // важный момент
-  if (!res.ok) throw new Error(`Server API ${res.status}`);
-  return res.json();
+export async function ssrGetMe(): Promise<User> {
+  const { data } = await client.get<User>("/users/me", {
+    headers: { Cookie: await cookieHeader() },
+    withCredentials: true,
+  });
+  return data;
 }
 
-export async function ssrGetNoteById(id: string) {
-  const res = await sfetch(`/notes/${id}`, { method: "GET" });
-  if (!res.ok) throw new Error(`Server API ${res.status}`);
-  return res.json();
+export async function ssrGetNoteById(id: string): Promise<Note> {
+  const { data } = await client.get<Note>(`/notes/${id}`, {
+    headers: { Cookie: await cookieHeader() },
+    withCredentials: true,
+  });
+  return data;
 }

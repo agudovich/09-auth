@@ -3,7 +3,7 @@ import {
   dehydrate,
   QueryClient,
 } from "@tanstack/react-query";
-import { fetchNoteById } from "@/lib/api";
+import { fetchNoteById } from "@/lib/api/clientApi";
 import NotePreviewClient from "./NotePreview.client";
 
 export const revalidate = 0;

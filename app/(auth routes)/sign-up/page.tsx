@@ -1,24 +1,36 @@
+// app/(auth routes)/sign-up/page.tsx
 "use client";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { signUp } from "@/lib/api/clientApi";
+import { signUp, getMe } from "@/lib/api/clientApi";
+import { useAuthStore } from "@/lib/store/authStore";
 import css from "./SignUpPage.module.css";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
+
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    const fd = new FormData(e.currentTarget);
-    const email = String(fd.get("email") || "");
-    const password = String(fd.get("password") || "");
+    setSubmitting(true);
     try {
+      const fd = new FormData(e.currentTarget);
+      const email = String(fd.get("email") || "");
+      const password = String(fd.get("password") || "");
+
       await signUp({ email, password });
+      const me = await getMe(); // ✅ получаем юзера
+      setUser(me); // ✅ кладём в глобальный стор
       router.replace("/profile");
-    } catch (err) {
+    } catch {
       setError("Registration failed");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -47,8 +59,11 @@ export default function SignUpPage() {
           />
         </div>
         <div className={css.actions}>
-          <button type="submit" className={css.submitButton}>
-            Register
+          <button
+            type="submit"
+            className={css.submitButton}
+            disabled={submitting}>
+            {submitting ? "Registering..." : "Register"}
           </button>
         </div>
         {error && <p className={css.error}>{error}</p>}

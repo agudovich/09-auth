@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import css from "./page.module.css";
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { ssrGetMe } from "@/lib/api/serverApi";
 
@@ -11,10 +12,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ProfilePage() {
-  const user = await ssrGetMe();
-  if (!user) {
-    redirect("/sign-in?from=/profile");
-  }
+  // SSR: если 401/не ок — уводим на /sign-in
+  const user = await ssrGetMe().catch(() => null);
+  if (!user) redirect("/sign-in?from=/profile");
 
   return (
     <main className={css.mainContent}>
@@ -25,15 +25,18 @@ export default async function ProfilePage() {
             Edit Profile
           </Link>
         </div>
+
         <div className={css.avatarWrapper}>
-          <img
-            src={user.avatarURL || "/avatar-placeholder.png"}
-            alt="User Avatar"
+          <Image
+            src={user.avatar || "/avatar-placeholder.png"}
+            alt={`${user.username || "User"} avatar`}
             width={120}
             height={120}
             className={css.avatar}
+            priority
           />
         </div>
+
         <div className={css.profileInfo}>
           <p>Username: {user.username || "—"}</p>
           <p>Email: {user.email}</p>

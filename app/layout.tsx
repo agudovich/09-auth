@@ -5,7 +5,7 @@ import "./globals.css";
 import { Roboto } from "next/font/google";
 import { SITE_URL, OG_IMAGE } from "@/lib/seo";
 
-import Providers from "./providers";
+import TanStackProvider from "@/components/TanStackProvider/TanStackProvider";
 import Header from "@/components/Header/Header";
 import Footer from "@/components/Footer/Footer";
 import AuthProvider from "@/components/AuthProvider/AuthProvider";
@@ -19,10 +19,7 @@ const roboto = Roboto({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: {
-    default: "NoteHub",
-    template: "%s | NoteHub",
-  },
+  title: { default: "NoteHub", template: "%s | NoteHub" },
   description: "NoteHub — best notepad. Next.js App Router + React Query.",
   openGraph: {
     title: "NoteHub",
@@ -44,14 +41,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={roboto.variable}>
       <body>
-        <Providers>
+        <TanStackProvider>
           <AuthProvider>
             <Header />
             <main>{children}</main>
-            <Footer />
             {modal}
+            <Footer />
           </AuthProvider>
-        </Providers>
+        </TanStackProvider>
       </body>
     </html>
   );

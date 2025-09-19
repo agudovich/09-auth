@@ -1,49 +1,73 @@
 // middleware.ts
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
-const isPrivate = (p: string) =>
-  p.startsWith("/notes") || p.startsWith("/profile");
+const PUBLIC_ROUTES = ["/sign-in", "/sign-up"];
+const PRIVATE_PREFIXES = ["/notes", "/profile"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Защищаем только приватные роуты
-  if (!isPrivate(pathname)) {
-    return NextResponse.next();
-  }
+  const accessToken = req.cookies.get("accessToken")?.value;
+  const refreshToken = req.cookies.get("refreshToken")?.value;
 
-  // Мягкая проверка сессии через наш API. Без ручных cookie, без кэша.
-  // Если что-то не так — считаем, что не залогинен и шлём на /sign-in
-  let hasUser = false;
-  try {
-    const res = await fetch(new URL("/api/auth/session", req.url), {
-      cache: "no-store",
-      // Доп. заголовок — ломаем любой промежуточный кэш
-      headers: { "x-mw": "1" },
-    });
-    if (res.status === 200) {
-      // в нашем API: 200 с JSON = есть пользователь; 200 с пустым телом = гость
-      const text = await res.text();
-      if (text.trim()) {
-        hasUser = true;
+  const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  const isPrivate = PRIVATE_PREFIXES.some((r) => pathname.startsWith(r));
+
+  // --- helper: попытка рефреша токенов по refreshToken ---
+  async function tryRefresh(): Promise<string[]> {
+    if (!refreshToken) return [];
+    try {
+      const r = await fetch(new URL("/api/auth/refresh", req.url), {
+        method: "POST",
+        headers: { cookie: req.headers.get("cookie") ?? "" },
+      });
+      if (!r.ok) return [];
+
+      const setCookies: string[] = [];
+      if (typeof r.headers.getSetCookie === "function") {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        return r.headers.getSetCookie() as string[];
       }
+      const single = r.headers.get("set-cookie");
+      if (single) setCookies.push(single);
+      return setCookies;
+    } catch {
+      return [];
     }
-  } catch {
-    hasUser = false;
   }
 
-  if (!hasUser) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/sign-in";
-    url.searchParams.set("from", pathname);
-    return NextResponse.redirect(url);
+  // Если нет access, но есть refresh — пробуем обновить
+  let setCookieFromRefresh: string[] = [];
+  if (!accessToken && refreshToken) {
+    setCookieFromRefresh = await tryRefresh();
   }
 
-  return NextResponse.next();
+  const gotAccess =
+    !!accessToken ||
+    setCookieFromRefresh.some((c) => c.startsWith("accessToken="));
+
+  // Авторизован → не пускаем на public (перенаправляем на профиль)
+  if (isPublic && gotAccess) {
+    const res = NextResponse.redirect(new URL("/profile", req.url));
+    setCookieFromRefresh.forEach((c) => res.headers.append("Set-Cookie", c));
+    return res;
+  }
+
+  // Не авторизован → не пускаем на private (на /sign-in)
+  if (isPrivate && !gotAccess) {
+    const res = NextResponse.redirect(new URL("/sign-in", req.url));
+    // подчистим потенциально протухшие куки
+    res.cookies.set("accessToken", "", { path: "/", maxAge: 0 });
+    res.cookies.set("refreshToken", "", { path: "/", maxAge: 0 });
+    return res;
+  }
+
+  // Иначе пропускаем дальше; если рефрешился — прокинем Set-Cookie
+  const res = NextResponse.next();
+  setCookieFromRefresh.forEach((c) => res.headers.append("Set-Cookie", c));
+  return res;
 }
 
-// защищаем только то, что нужно
 export const config = {
-  matcher: ["/notes/:path*", "/profile/:path*"],
+  matcher: ["/notes/:path*", "/profile/:path*", "/sign-in", "/sign-up"],
 };

@@ -22,3 +22,4 @@ export const client = axios.create({
   baseURL: `${chosenBase}/api`,
   withCredentials: true,
 });
+export * from "./clientApi";

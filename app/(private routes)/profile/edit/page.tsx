@@ -1,39 +1,45 @@
 // app/(private routes)/profile/edit/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { getMe, updateMe } from "@/lib/api/clientApi";
+import { useAuthStore } from "@/lib/store/authStore";
+import type { User } from "@/types/user";
 import css from "./page.module.css";
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
+
+  const [me, setMe] = useState<User | null>(null);
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [avatar, setAvatar] = useState("/avatar-placeholder.png"); // локальный плейсхолдер
-  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
-      try {
-        const user = await getMe();
-        setUsername(user.username);
-        setEmail(user.email);
-        setAvatar(user.avatarURL || "/avatar-placeholder.png"); // fallback
-      } finally {
-        setLoading(false);
-      }
+      const user = await getMe();
+      setMe(user);
+      setUsername(user.username);
     })();
   }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    await updateMe({ username });
-    router.replace("/profile");
+    if (!username.trim()) return;
+    setSubmitting(true);
+    try {
+      await updateMe({ username });
+      const fresh = await getMe();
+      setUser(fresh);
+      router.replace("/profile");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  if (loading) return null;
+  if (!me) return null;
 
   return (
     <main className={css.mainContent}>
@@ -41,11 +47,12 @@ export default function EditProfilePage() {
         <h1 className={css.formTitle}>Edit Profile</h1>
 
         <Image
-          src={avatar}
-          alt="User Avatar"
+          src={me.avatar || "/avatar-placeholder.png"}
+          alt={`${me.username || "User"} avatar`}
           width={120}
           height={120}
           className={css.avatar}
+          priority
         />
 
         <form className={css.profileInfo} onSubmit={onSubmit}>
@@ -53,6 +60,7 @@ export default function EditProfilePage() {
             <label htmlFor="username">Username:</label>
             <input
               id="username"
+              name="username"
               type="text"
               className={css.input}
               value={username}
@@ -60,16 +68,20 @@ export default function EditProfilePage() {
             />
           </div>
 
-          <p>Email: {email}</p>
+          <p>Email: {me.email}</p>
 
           <div className={css.actions}>
-            <button type="submit" className={css.saveButton}>
-              Save
+            <button
+              type="submit"
+              className={css.saveButton}
+              disabled={submitting}>
+              {submitting ? "Saving..." : "Save"}
             </button>
             <button
               type="button"
               className={css.cancelButton}
-              onClick={() => router.back()}>
+              onClick={() => router.back()}
+              disabled={submitting}>
               Cancel
             </button>
           </div>
